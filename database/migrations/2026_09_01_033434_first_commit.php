@@ -28,10 +28,11 @@ return new class extends Migration
                 ->constrained('departments')
                 ->restrictOnUpdate()
                 ->cascadeOnDelete();
-
+             $table->unsignedInteger('sort_order')
+                ->default(0);
             $table->string('name', 150);
             $table->string('code', 50)->unique();
-            $table->tinyInteger('status')->default(1);
+            $table->boolean('is_active')->default(true);
             $table->timestamps();
         });
 
@@ -71,7 +72,7 @@ return new class extends Migration
                 ->restrictOnUpdate()
                 ->restrictOnDelete();
 
-            $table->tinyInteger('status')->default(1);
+            $table->boolean('is_active')->default(true);
             $table->text('note')->nullable();
 
             $table->json('special_permission')
@@ -96,8 +97,8 @@ return new class extends Migration
             $table->string('phone',20);
             $table->string('username', 100)->unique();
             $table->string('password', 255);
-            $table->tinyInteger('status')->default(1);
-            $table->tinyInteger('is_system')->default(0);
+            $table->boolean('is_active')->default(true);
+            $table->boolean('is_system')->default(false);
             $table->timestamps();
         });
 
@@ -142,7 +143,7 @@ return new class extends Migration
                 ->restrictOnUpdate()
                 ->restrictOnDelete();
 
-            $table->tinyInteger('status')->default(1);
+            $table->boolean('is_active')->default(true);
             $table->text('note')->nullable();
             $table->timestamps();
         });
@@ -158,7 +159,7 @@ return new class extends Migration
             $table->string('code', 50)->unique();
             $table->string('location', 255)->nullable();
             $table->enum('direction', ['IN', 'OUT', 'BOTH'])->default('BOTH');
-            $table->tinyInteger('status')->default(1);
+            $table->boolean('is_active')->default(true);
 
             $table->string('username', 100)->unique();
             $table->string('password', 255);
@@ -219,7 +220,7 @@ return new class extends Migration
 
             $table->string('brand', 100)->nullable();
             $table->string('model', 100)->nullable();
-            $table->tinyInteger('status')->default(1);
+            $table->boolean('is_active')->default(true);
             $table->text('note')->nullable();
             $table->timestamps();
         });
@@ -261,7 +262,7 @@ return new class extends Migration
                 ->restrictOnUpdate()
                 ->restrictOnDelete();
 
-            $table->tinyInteger('status')->default(1);
+            $table->boolean('is_active')->default(true);
             $table->text('note')->nullable();
             $table->timestamps();
             // $table->check('owner_person_id IS NOT NULL OR owner_department_id IS NOT NULL');
