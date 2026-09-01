@@ -80,7 +80,7 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        Schema::create('users-custom', function (Blueprint $table) {
+        Schema::create('users', function (Blueprint $table) {
             $table->id();
             $table->foreignId('department_id')
                 ->nullable()
@@ -92,11 +92,12 @@ return new class extends Migration
                 ->constrained('persons')
                 ->restrictOnUpdate()
                 ->restrictOnDelete();
-
+            $table->rememberToken()->nullable();
             $table->string('phone',20);
             $table->string('username', 100)->unique();
             $table->string('password', 255);
             $table->tinyInteger('status')->default(1);
+            $table->tinyInteger('is_system')->default(0);
             $table->timestamps();
         });
 
@@ -284,7 +285,7 @@ return new class extends Migration
         Schema::dropIfExists('vehicles_personal');
         Schema::dropIfExists('vehicle_colors');
         Schema::dropIfExists('vehicle_types');
-        Schema::dropIfExists('users-custom');
+        Schema::dropIfExists('users');
         Schema::dropIfExists('persons');
         Schema::dropIfExists('person_types');
         Schema::dropIfExists('departments');
