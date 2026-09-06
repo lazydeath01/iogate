@@ -15,7 +15,7 @@ new class extends Component {
 ?>
 
 <div>
-    <div class="flex flex-col items-stretch h-screen min-w-50 w-[15vw] bg-gray-200">
+    <div class="flex flex-col items-stretch min-h-screen h-full min-w-50 w-[15vw] bg-gray-200">
         <div class = "flex flex-col items-center pt-6 pb-6">
             <h1 class="pb-3">
                 Welcome <span class="font-bold">{{ Auth::user()->username }}</span>
