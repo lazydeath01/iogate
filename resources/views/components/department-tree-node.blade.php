@@ -22,7 +22,7 @@
         this.menuOpen = !this.menuOpen;
     }
 }" wire:key="department-{{ $department->id }}">
-    <div class="flex items-center gap-1 rounded-md px-1 py-1 transition {{ $selectedDepartmentId === $department->id ? 'bg-teal-100 ring-2 ring-teal-600/70' : '' }}"
+    <div class="flex items-center gap-1 rounded-md px-1 py-1 transition duratino-25  {{ $selectedDepartmentId === $department->id ? 'bg-teal-100 ring-1 ring-teal-600/70' : '' }}"
         style="padding-left: {{ $depth * 1.25 }}rem">
         @if (count($children) > 0)
             <button type="button" class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded text-sm text-slate-500 hover:bg-slate-200 hover:text-slate-800" x-on:click="open = !open"

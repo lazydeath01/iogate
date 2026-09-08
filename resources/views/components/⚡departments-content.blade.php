@@ -19,7 +19,8 @@ new class extends Component {
     public $bulkImportErrors = [];
     public $bulkImportSuccess = '';
 
-    public function mount() {
+    public function mount()
+    {
         $this->loadDepartments();
     }
 
@@ -158,7 +159,7 @@ new class extends Component {
         }
         $department = $this->departments->firstWhere('id', $departmentId);
 
-        if (! $department) {
+        if (!$department) {
             return;
         }
 
@@ -168,9 +169,7 @@ new class extends Component {
 
     public function updatedParentCode(?string $parentCode): void
     {
-        $this->selectedDepartmentId = $parentCode === ''
-            ? null
-            : $this->departments->firstWhere('code', $parentCode)?->id;
+        $this->selectedDepartmentId = $parentCode === '' ? null : $this->departments->firstWhere('code', $parentCode)?->id;
     }
 
     public function clearParentDepartment(): void
@@ -183,7 +182,7 @@ new class extends Component {
     {
         $department = $this->departments->firstWhere('id', $departmentId);
 
-        if (! $department) {
+        if (!$department) {
             return;
         }
 
@@ -199,7 +198,7 @@ new class extends Component {
 
         $department = $this->departments->firstWhere('id', $this->editingDepartmentId);
 
-        if (! $department) {
+        if (!$department) {
             return;
         }
 
@@ -218,13 +217,13 @@ new class extends Component {
     {
         $department = $this->departments->firstWhere('id', $departmentId);
 
-        if (! $department) {
+        if (!$department) {
             return;
         }
 
         $departmentIds = [$department->id];
 
-        if (! $isActive || $includeChildren) {
+        if (!$isActive || $includeChildren) {
             $departmentIds = array_merge($departmentIds, $this->descendantDepartmentIds($department->id));
         }
 
@@ -253,7 +252,15 @@ new class extends Component {
 
 <div class="h-full bg-slate-100 p-4 sm:p-6">
     <div class="mx-auto flex max-w-6xl flex-col gap-5">
-        <div class="grid min-h-128 grid-cols-1 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm lg:grid-cols-[minmax(20rem,0.85fr)_minmax(0,1.15fr)]">
+        <div class="flex items-end justify-between gap-4">
+            <div>
+                <h1 class="mt-1 text-2xl font-bold tracking-tight text-slate-900">Đơn vị</h1>
+                <p class="mt-1 max-w-2xl text-sm text-slate-500">Tạo nhóm người để áp dụng quyền ra vào chi tiết cho từng
+                    nhóm.</p>
+            </div>
+        </div>
+        <div
+            class="grid min-h-128 grid-cols-1 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm lg:grid-cols-[minmax(20rem,0.85fr)_minmax(0,1.15fr)]">
             <section class="bg-slate-50 max-h-full" x-data="{ bulkMode: false }">
                 <div class="border-b border-slate-200 px-5 py-4">
                     <h2 class="font-semibold text-slate-900">Thêm mới đơn vị</h2>
@@ -262,32 +269,36 @@ new class extends Component {
                 <div class="flex gap-1 border-b border-slate-200 px-5 pt-4">
                     <button type="button" x-on:click="bulkMode = false"
                         class="border-b-2 px-3 pb-3 text-sm font-semibold transition"
-                        :class="bulkMode ? 'border-transparent text-slate-500 hover:text-slate-800' : 'border-teal-700 text-teal-700'">
+                        :class="bulkMode ? 'border-transparent text-slate-500 hover:text-slate-800' :
+                            'border-teal-700 text-teal-700'">
                         Thêm từng đơn vị
                     </button>
                     <button type="button" x-on:click="bulkMode = true"
                         class="border-b-2 px-3 pb-3 text-sm font-semibold transition"
-                        :class="bulkMode ? 'border-teal-700 text-teal-700' : 'border-transparent text-slate-500 hover:text-slate-800'">
+                        :class="bulkMode ? 'border-teal-700 text-teal-700' :
+                            'border-transparent text-slate-500 hover:text-slate-800'">
                         Nhập nhiều đơn vị
                     </button>
                 </div>
                 <form x-show="!bulkMode" wire:submit.prevent="addDepartment" class="flex flex-col gap-5 p-5">
                     <label class="flex flex-col gap-2 text-sm font-medium text-slate-700">
                         <span>Tên đơn vị</span>
-                        <input class="rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20"
+                        <input
+                            class="rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20"
                             type="text" placeholder="Nhập tên đơn vị" wire:model="name">
                         @error('name')
-                            @if ($message=="The name field is required.")
-                            <span class="font-normal text-red-600">Tên đơn vị không được bỏ trống.</span>
+                            @if ($message == 'The name field is required.')
+                                <span class="font-normal text-red-600">Tên đơn vị không được bỏ trống.</span>
                             @else
-                            <span class="font-normal text-red-600">{{ $message }}</span>
+                                <span class="font-normal text-red-600">{{ $message }}</span>
                             @endif
                         @enderror
                     </label>
                     <label class="flex flex-col gap-2 text-sm font-medium text-slate-700">
                         <span>Mã đơn vị cha</span>
                         <div class="flex items-center gap-2">
-                            <select class="block min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20"
+                            <select
+                                class="block min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20"
                                 wire:model.live="parent_code">
                                 <option value="">Không có đơn vị cha</option>
                                 @foreach ($departments as $department)
@@ -306,7 +317,8 @@ new class extends Component {
                             <span class="font-normal text-red-600">{{ $message }}</span>
                         @enderror
                     </label>
-                    <button class="mt-1 inline-flex w-full items-center justify-center rounded-md bg-teal-700 px-4 py-2.5 font-semibold text-white transition hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-600 focus:ring-offset-2"
+                    <button
+                        class="mt-1 inline-flex w-full items-center justify-center rounded-md bg-teal-700 px-4 py-2.5 font-semibold text-white transition hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-600 focus:ring-offset-2"
                         type="submit">Thêm đơn vị</button>
                 </form>
                 <form x-show="bulkMode" wire:submit.prevent="importDepartments" class="flex flex-col gap-4 p-5">
@@ -317,7 +329,8 @@ new class extends Component {
                             placeholder="Tên đơn vị, mã đơn vị cha&#10;Phòng Tài chính,&#10;Tổ Kế toán,001"></textarea>
                     </label>
                     <p class="text-xs leading-5 text-slate-500">
-                        Mỗi dòng một đơn vị theo định dạng <strong>tên đơn vị, mã đơn vị cha</strong>. Để trống mã cha nếu là đơn vị cấp cao nhất. Đơn vị cha phải nằm ở dòng trước.
+                        Mỗi dòng một đơn vị theo định dạng <strong>tên đơn vị, mã đơn vị cha</strong>. Để trống mã cha
+                        nếu là đơn vị cấp cao nhất. Đơn vị cha phải nằm ở dòng trước.
                     </p>
                     @if ($bulkImportErrors !== [])
                         <div class="flex flex-col gap-1 text-sm text-red-600">
@@ -329,19 +342,27 @@ new class extends Component {
                     @if ($bulkImportSuccess !== '')
                         <p class="text-sm text-teal-700">{{ $bulkImportSuccess }}</p>
                     @endif
-                    <button class="mt-1 inline-flex w-full items-center justify-center rounded-md bg-teal-700 px-4 py-2.5 font-semibold text-white transition hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-600 focus:ring-offset-2"
+                    <button
+                        class="mt-1 inline-flex w-full items-center justify-center rounded-md bg-teal-700 px-4 py-2.5 font-semibold text-white transition hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-600 focus:ring-offset-2"
                         type="submit">Nhập danh sách</button>
                 </form>
             </section>
             <section class="min-w-0 border-b border-slate-200 lg:border-b-0 lg:border-l">
-                <div class="border-b border-slate-200 px-5 py-4">
-                    <h2 class="font-semibold text-slate-900">Danh sách đơn vị</h2>
-                    <p class="mt-1 text-sm text-slate-500">Chọn một đơn vị để đặt làm đơn vị cha.</p>
+                <div class="border-b border-slate-200 px-5 py-4 flex flex-row justify-between items-center">
+                    <div>
+                        <h2 class="font-semibold text-slate-900">Danh sách đơn vị</h2>
+                        <p class="mt-1 text-sm text-slate-500">Chọn một đơn vị để đặt làm đơn vị cha.</p>
+                    </div>
+                    <div
+                        class="hidden rounded-md border border-slate-200 bg-white px-2 py-2 text-right shadow-sm sm:block">
+                        <p class=" font-bold text-slate-900">{{ $departments->count() }} <span class="text-xs font-medium text-slate-500">đơn vị</span></p>
+                    </div>
                 </div>
                 @if ($departments->isEmpty())
                     <p class="px-5 py-8 text-center text-sm text-slate-500">Danh sách trống</p>
                 @endif
-                <div class="flex max-h-[calc(100vh-14rem)] min-h-0 flex-col gap-1 overflow-y-auto p-4" wire:key="department-list">
+                <div class="flex max-h-[calc(100vh-14rem)] min-h-0 flex-col gap-1 overflow-y-auto p-4"
+                    wire:key="department-list">
                     @foreach ($map[0] ?? [] as $departmentId)
                         @include('components.department-tree-node', [
                             'departmentId' => $departmentId,

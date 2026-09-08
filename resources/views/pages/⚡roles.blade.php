@@ -12,5 +12,8 @@ new class extends Component
 <div class="flex flex-row items-start">
     {{-- sidebar --}}
     <livewire:sidebar />
-    <livewire:tabheading/>
+        <div class="flex flex-col w-full h-screen">
+        {{-- <livewire:tabheading/> --}}
+        <livewire:roles-content/>
+    </div>
 </div>

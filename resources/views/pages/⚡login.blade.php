@@ -38,23 +38,23 @@ new class extends Component {
 
     <div id="panel" class="relative w-full max-w-md rounded-2xl border border-white/10 bg-white px-6 py-8 shadow-2xl shadow-black/30 sm:px-10 sm:py-10">
         <div class="mb-8">
-            <p class="mb-3 text-xs font-semibold uppercase tracking-[0.24em] text-indigo-600">Secure access</p>
-            <h1 class="text-3xl font-semibold tracking-tight text-slate-950">Welcome back</h1>
-            <p class="mt-2 text-sm leading-6 text-slate-500">Sign in to continue to your workspace.</p>
+            <p class="mb-3 text-xs font-semibold uppercase tracking-[0.24em] text-indigo-600">iogate</p>
+            <h1 class="text-3xl font-semibold tracking-tight text-slate-950">Đăng nhập</h1>
+            <p class="mt-2 text-sm leading-6 text-slate-500">Phân hệ quản trị, nhập liệu.</p>
         </div>
 
         <form class="space-y-5" wire:submit.prevent="login">
             <label class="block text-sm font-medium text-slate-700">
-                Username
-                <input class="mt-2 block w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10" type="text" placeholder="Enter your username" wire:model="username" autocomplete="username">
+                Tên đăng nhập:
+                <input class="mt-2 block w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10" type="text" placeholder="..." wire:model="username" autocomplete="username">
                 @error('username')
                 <span class="mt-1.5 block text-sm text-red-600">{{ $message }}</span>
                 @enderror
             </label>
 
             <label class="block text-sm font-medium text-slate-700">
-                Password
-                <input class="mt-2 block w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10" type="password" placeholder="Enter your password" wire:model="password" autocomplete="current-password">
+                Mật khẩu
+                <input class="mt-2 block w-full rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10" type="password" placeholder="..." wire:model="password" autocomplete="current-password">
                 @error('password')
                 <span class="mt-1.5 block text-sm text-red-600">{{ $message }}</span>
                 @enderror
@@ -66,10 +66,10 @@ new class extends Component {
 
             <label class="flex items-center gap-2.5 text-sm text-slate-600">
                 <input class="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" type="checkbox" wire:model="remember">
-                Remember me
+                Ghi nhớ đăng nhập
             </label>
 
-            <button class="w-full rounded-lg bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-600/20 transition hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-500/20 active:translate-y-px" type="submit">Sign in</button>
+            <button class="w-full rounded-lg bg-indigo-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-600/20 transition hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-500/20 active:translate-y-px" type="submit">Đăng nhập</button>
         </form>
     </div>
 </div>

@@ -44,7 +44,7 @@ return new class extends Migration
         Schema::create('person_types', function (Blueprint $table) {
             $table->id();
             $table->string('name', 100);
-            $table->string('code', 50)->unique();
+            // $table->string('code', 50)->unique();
             $table->string('description', 255)->nullable();
 
             $table->foreignId('permission_id')

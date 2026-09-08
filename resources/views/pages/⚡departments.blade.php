@@ -13,7 +13,6 @@ new class extends Component
     {{-- sidebar --}}
     <livewire:sidebar />
     <div class="flex flex-col w-full h-screen">
-        <livewire:tabheading/>
         <livewire:departments-content/>
     </div>
 </div>
