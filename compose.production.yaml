@@ -1,0 +1,84 @@
+services:
+
+    app:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        image: iogate:production
+        container_name: iogate-app
+        restart: unless-stopped
+
+        env_file:
+            - .env
+
+        environment:
+            APP_ENV: production
+            APP_DEBUG: "false"
+
+            DB_CONNECTION: mysql
+            DB_HOST: mysql
+            DB_PORT: 3306
+
+        ports:
+            - "${APP_PORT:-80}:80"
+
+        volumes:
+            # Persistent Laravel storage
+            - laravel-storage:/var/www/html/storage
+
+        depends_on:
+            mysql:
+                condition: service_healthy
+
+        networks:
+            - iogate
+
+
+    mysql:
+        image: mysql:8.4
+        container_name: iogate-mysql
+        restart: unless-stopped
+
+        environment:
+            MYSQL_DATABASE: ${DB_DATABASE}
+            MYSQL_USER: ${DB_USERNAME}
+            MYSQL_PASSWORD: ${DB_PASSWORD}
+            MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+
+        volumes:
+            - mysql-data:/var/lib/mysql
+
+        # Không expose MySQL ra Internet.
+        # Laravel app truy cập MySQL qua network nội bộ.
+        networks:
+            - iogate
+
+        healthcheck:
+            test:
+                [
+                    "CMD",
+                    "mysqladmin",
+                    "ping",
+                    "-h",
+                    "localhost",
+                    "-u",
+                    "root",
+                    "-p${DB_ROOT_PASSWORD}"
+                ]
+            interval: 10s
+            timeout: 5s
+            retries: 10
+            start_period: 30s
+
+
+networks:
+    iogate:
+        driver: bridge
+
+
+volumes:
+    mysql-data:
+        driver: local
+
+    laravel-storage:
+        driver: local
