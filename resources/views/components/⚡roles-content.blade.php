@@ -7,10 +7,7 @@ new class extends Component {
     public $personTypes = [];
     public $nameInput = '';
     public $descriptionInput = '';
-    public $editingPersonTypeId = null;
-    public $editingPersonTypeName = '';
-    public $editingPersonTypeDescription = '';
-    public $editingPersonTypeField = 'name';
+
     public function mount()
     {
         $this->personTypes = PersonType::all();
@@ -22,69 +19,13 @@ new class extends Component {
             'nameInput' => 'required|max:100',
             'descriptionInput' => 'max:255',
         ]);
+
         $personType = PersonType::create([
             'name' => $this->nameInput,
             'description' => $this->descriptionInput,
         ]);
         $this->personTypes[] = $personType;
         $this->reset(['nameInput', 'descriptionInput']);
-    }
-
-    public function startRenamingPersonType(int $personTypeId): void
-    {
-        $personType = $this->personTypes->firstWhere('id', $personTypeId);
-
-        if (!$personType) {
-            return;
-        }
-
-        $this->editingPersonTypeId = $personType->id;
-        $this->editingPersonTypeName = $personType->name;
-        $this->editingPersonTypeDescription = $personType->description ?? '';
-        $this->editingPersonTypeField = 'name';
-    }
-
-    public function savePersonTypeName(): void
-    {
-        $this->validate([
-            'editingPersonTypeName' => 'required|max:100',
-            'editingPersonTypeDescription' => 'max:255',
-        ]);
-
-        $personType = $this->personTypes->firstWhere('id', $this->editingPersonTypeId);
-
-        if (!$personType) {
-            return;
-        }
-
-        $personType->update([
-            'name' => $this->editingPersonTypeName,
-            'description' => $this->editingPersonTypeDescription,
-        ]);
-        $this->editingPersonTypeId = null;
-        $this->editingPersonTypeName = '';
-        $this->editingPersonTypeDescription = '';
-        $this->editingPersonTypeField = 'name';
-    }
-
-    public function editPersonTypeName(): void
-    {
-        $this->resetValidation();
-        $this->editingPersonTypeField = 'name';
-    }
-
-    public function editPersonTypeDescription(): void
-    {
-        $this->resetValidation();
-        $this->editingPersonTypeField = 'description';
-    }
-
-    public function cancelRenamingPersonType(): void
-    {
-        $this->editingPersonTypeId = null;
-        $this->editingPersonTypeName = '';
-        $this->editingPersonTypeDescription = '';
-        $this->editingPersonTypeField = 'name';
     }
 };
 ?>
@@ -158,77 +99,7 @@ new class extends Component {
                 @else
                     <div class="grid gap-3 p-4 sm:grid-cols-2">
                         @foreach ($personTypes as $item)
-                            @if ($editingPersonTypeId === $item->id)
-                                <div class="fixed inset-0 z-40 bg-slate-950/60" aria-hidden="true"></div>
-                            @endif
-                            <article wire:key="person-type-{{ $item->id }}" x-data="{ menuOpen: false }"
-                                class="{{ $editingPersonTypeId === $item->id ? 'relative z-50' : '' }} rounded-md border border-slate-200 bg-white p-4 transition hover:border-teal-300 hover:shadow-sm">
-                                <div class="flex items-start gap-3">
-                                    <div class="min-w-0 flex-1">
-                                        @if ($editingPersonTypeId === $item->id)
-                                            <form wire:key="editing-person-type-{{ $item->id }}-{{ $editingPersonTypeField }}"
-                                                wire:submit="savePersonTypeName"
-                                                x-on:keydown="if ($event.key === 'Tab') { const focusable = [...$el.querySelectorAll('input, button, [tabindex]:not([tabindex=\'-1\'])')].filter((element) => !element.disabled && element.offsetParent !== null); const first = focusable[0]; const last = focusable[focusable.length - 1]; if ($event.shiftKey && document.activeElement === first) { $event.preventDefault(); last.focus(); } else if (!$event.shiftKey && document.activeElement === last) { $event.preventDefault(); first.focus(); } }"
-                                                x-init="$nextTick(() => { $refs.editingInput.focus(); $refs.editingInput.select(); })"
-                                                class="flex items-start gap-2">
-                                                <div class="min-w-0 flex-1">
-                                                    @if ($editingPersonTypeField === 'name')
-                                                        <label for="editingPersonTypeName-{{ $item->id }}" class="sr-only">Tên vai trò</label>
-                                                        <input wire:model="editingPersonTypeName" id="editingPersonTypeName-{{ $item->id }}" type="text"
-                                                            x-ref="editingInput"
-                                                            class="w-full rounded-md border border-slate-300 px-2 py-1 text-sm text-slate-900 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20">
-                                                        @error('editingPersonTypeName')
-                                                            <span class="mt-1 block text-sm font-normal text-red-600">{{ $message }}</span>
-                                                        @enderror
-                                                        <p wire:click="editPersonTypeDescription" role="button" tabindex="0"
-                                                            wire:keydown.enter="editPersonTypeDescription"
-                                                            class="mt-1 cursor-pointer text-sm leading-5 text-slate-500 hover:text-teal-700">
-                                                            {{ $editingPersonTypeDescription ?: 'Chưa có ghi chú' }}
-                                                        </p>
-                                                    @else
-                                                        <h3 wire:click="editPersonTypeName" role="button" tabindex="0"
-                                                            wire:keydown.enter="editPersonTypeName"
-                                                            class="cursor-pointer font-semibold text-slate-900 hover:text-teal-700">
-                                                            {{ $editingPersonTypeName }}
-                                                        </h3>
-                                                        <label for="editingPersonTypeDescription-{{ $item->id }}" class="sr-only">Ghi chú</label>
-                                                        <input wire:model="editingPersonTypeDescription" id="editingPersonTypeDescription-{{ $item->id }}" type="text"
-                                                            x-ref="editingInput" placeholder="Mô tả ngắn về nhóm người này"
-                                                            class="mt-1 w-full rounded-md border border-slate-300 px-2 py-1 text-sm text-slate-900 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20">
-                                                        @error('editingPersonTypeDescription')
-                                                            <span class="mt-1 block text-sm font-normal text-red-600">{{ $message }}</span>
-                                                        @enderror
-                                                    @endif
-                                                </div>
-                                                <div class="flex shrink-0 flex-col gap-1">
-                                                    <button type="submit" class="rounded-md px-2 py-1 text-sm font-semibold text-teal-700 hover:bg-teal-50">Lưu</button>
-                                                    <button type="button" wire:click="cancelRenamingPersonType" class="rounded-md px-2 py-1 text-sm font-semibold text-slate-500 hover:bg-slate-100">Hủy</button>
-                                                </div>
-                                            </form>
-                                        @else
-                                            <h3 class="font-semibold text-slate-900">{{ $item->name }}</h3>
-                                            @if ($item->description)
-                                                <p class="mt-1 text-sm leading-5 text-slate-500">{{ $item->description }}</p>
-                                            @else
-                                                <p class="mt-1 text-sm italic text-slate-400">Chưa có ghi chú</p>
-                                            @endif
-                                        @endif
-                                    </div>
-                                    <div class="relative shrink-0">
-                                        <button type="button" x-on:click="menuOpen = !menuOpen" :aria-expanded="menuOpen.toString()"
-                                            class="inline-flex h-8 w-8 items-center justify-center rounded text-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-                                            aria-label="Tùy chọn vai trò" title="Tùy chọn vai trò">
-                                            &hellip;
-                                        </button>
-                                        <div x-show="menuOpen" x-cloak x-on:click.outside="menuOpen = false"
-                                            class="absolute right-0 top-full z-10 mt-1 w-28 rounded-md border border-slate-200 bg-white py-1 text-sm shadow-lg">
-                                            <button type="button" wire:click="startRenamingPersonType({{ $item->id }})"
-                                                x-on:click="menuOpen = false"
-                                                class="w-full px-3 py-2 text-left text-slate-700 hover:bg-slate-50">Chỉnh sửa</button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </article>
+                            <livewire:role-card :person-type="$item" :wire:key="'person-type-' . $item->id" />
                         @endforeach
                     </div>
                 @endif
