@@ -3,14 +3,13 @@
 use Livewire\Component;
 use Illuminate\Support\Facades\Auth;
 
-new class extends Component
-{
-    
-};
+new class extends Component {};
 ?>
 
-<div class="flex flex-row items-start">
+<div class="flex h-screen flex-row items-start overflow-hidden">
     {{-- sidebar --}}
     <livewire:sidebar />
-    <livewire:tabheading/>
+    <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <livewire:permissions-content />
+    </div>
 </div>

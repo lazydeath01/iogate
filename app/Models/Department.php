@@ -6,9 +6,17 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Validation\ValidationException;
 
-#[Fillable(['name', 'description', 'parent_id', 'sort_order', 'is_active'])]
+#[Fillable(['name', 'description', 'parent_id', 'sort_order', 'is_active', 'permission'])]
 class Department extends Model
 {
+    protected function casts(): array
+    {
+        return [
+            'permission' => 'array',
+            'is_active' => 'boolean',
+        ];
+    }
+
     // auto fill code (if null) when creating new department
     protected static function booted()
     {

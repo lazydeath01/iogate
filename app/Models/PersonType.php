@@ -2,11 +2,18 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Model;
 
-#[Fillable(['name', 'description', 'permission_id'])]
+#[Fillable(['name', 'description', 'permission_id', 'permission'])]
 class PersonType extends Model
 {
-    protected $table = "person_types";
+    protected $table = 'person_types';
+
+    protected function casts(): array
+    {
+        return [
+            'permission' => 'array',
+        ];
+    }
 }
