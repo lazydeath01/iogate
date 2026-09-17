@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\ValidatesPermission;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Validation\ValidationException;
@@ -9,6 +10,8 @@ use Illuminate\Validation\ValidationException;
 #[Fillable(['name', 'description', 'parent_id', 'sort_order', 'is_active', 'permission'])]
 class Department extends Model
 {
+    use ValidatesPermission;
+
     protected function casts(): array
     {
         return [
@@ -45,7 +48,15 @@ class Department extends Model
             ]);
         }
 
-        return $prefix.str_pad($number, 3, '0', STR_PAD_LEFT);
+        $code = $prefix.str_pad($number, 3, '0', STR_PAD_LEFT);
+
+        if (mb_strlen($code) > 50) {
+            throw ValidationException::withMessages([
+                'parent_code' => 'Không thể tạo thêm đơn vị con vì mã đơn vị tự động sẽ vượt quá 50 ký tự.',
+            ]);
+        }
+
+        return $code;
     }
     //
 }

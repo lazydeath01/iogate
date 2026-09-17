@@ -18,6 +18,7 @@ new class extends Component {
     public $bulkDepartments = '';
     public $bulkImportErrors = [];
     public $bulkImportSuccess = '';
+    public array $creationLogs = [];
 
     public function mount()
     {
@@ -35,12 +36,18 @@ new class extends Component {
         }
     }
 
-    public function addDepartment()
+    public function addDepartment(?string $parentCode = null): void
     {
+        $this->parent_code = $parentCode ?? '';
+
         $this->validate([
             'name' => 'required|max:150',
             'parent_code' => 'max:50',
         ]);
+        if ($this->parent_code !== '' && mb_strlen($this->parent_code) + 4 > 50) {
+            $this->addError('parent_code', 'Không thể tạo thêm đơn vị con vì mã đơn vị tự động sẽ vượt quá 50 ký tự.');
+            return;
+        }
         if (Department::where('code', $this->parent_code)->doesntExist() && $this->parent_code != '') {
             $this->addError('parent_code', 'Mã đơn vị cha không tồn tại.');
             return;
@@ -56,6 +63,7 @@ new class extends Component {
 
         $this->map[$parent_id][] = $department->id;
         $this->departments[] = $department;
+        $this->recordDepartmentCreation($department);
         $this->reset(['name', 'is_active']);
     }
 
@@ -115,8 +123,9 @@ new class extends Component {
 
         try {
             $createdCount = 0;
+            $createdDepartments = [];
 
-            DB::transaction(function () use ($rows, &$createdCount): void {
+            DB::transaction(function () use ($rows, &$createdCount, &$createdDepartments): void {
                 $departmentIdsByCode = Department::pluck('id', 'code')->all();
 
                 foreach ($rows as $row) {
@@ -130,6 +139,12 @@ new class extends Component {
                                 'bulkDepartments' => "Dòng {$row['line']}: mã đơn vị cha không tồn tại hoặc chưa được nhập ở dòng trước.",
                             ]);
                         }
+
+                        if (mb_strlen($row['parent_code']) + 4 > 50) {
+                            throw ValidationException::withMessages([
+                                'bulkDepartments' => "Dòng {$row['line']}: không thể tạo thêm đơn vị con vì mã đơn vị tự động sẽ vượt quá 50 ký tự.",
+                            ]);
+                        }
                     }
 
                     $department = Department::create([
@@ -139,11 +154,15 @@ new class extends Component {
                     ]);
 
                     $departmentIdsByCode[$department->code] = $department->id;
+                    $createdDepartments[] = $department;
                     $createdCount++;
                 }
             });
 
             $this->loadDepartments();
+            foreach ($createdDepartments as $department) {
+                $this->recordDepartmentCreation($department);
+            }
             $this->bulkDepartments = '';
             $this->bulkImportSuccess = "Đã thêm {$createdCount} đơn vị.";
         } catch (ValidationException $exception) {
@@ -151,31 +170,13 @@ new class extends Component {
         }
     }
 
-    public function selectParentDepartment(int $departmentId): void
+    private function recordDepartmentCreation(Department $department): void
     {
-        if ($departmentId == $this->selectedDepartmentId) {
-            $this->clearParentDepartment();
-            return;
-        }
-        $department = $this->departments->firstWhere('id', $departmentId);
-
-        if (!$department) {
-            return;
-        }
-
-        $this->selectedDepartmentId = $department->id;
-        $this->parent_code = $department->code;
-    }
-
-    public function updatedParentCode(?string $parentCode): void
-    {
-        $this->selectedDepartmentId = $parentCode === '' ? null : $this->departments->firstWhere('code', $parentCode)?->id;
-    }
-
-    public function clearParentDepartment(): void
-    {
-        $this->selectedDepartmentId = null;
-        $this->parent_code = '';
+        $this->creationLogs[] = [
+            'created_at' => now()->format('H:i:s'),
+            'name' => $department->name,
+            'code' => $department->code,
+        ];
     }
 
     public function startRenamingDepartment(int $departmentId): void
@@ -250,7 +251,20 @@ new class extends Component {
 };
 ?>
 
-<div class="h-full bg-slate-100 p-4 sm:p-6">
+<div class="h-full bg-slate-100 p-4 sm:p-6" x-data="{
+    selectedDepartmentId: @js($selectedDepartmentId),
+    parentCode: @js($parent_code),
+    selectParent(departmentId, departmentCode) {
+        if (departmentId === this.selectedDepartmentId) {
+            this.selectedDepartmentId = null;
+            this.parentCode = '';
+            return;
+        }
+
+        this.selectedDepartmentId = departmentId;
+        this.parentCode = departmentCode;
+    }
+}">
     <div class="mx-auto flex max-w-6xl flex-col gap-5">
         <div class="flex items-end justify-between gap-4">
             <div>
@@ -280,7 +294,7 @@ new class extends Component {
                         Nhập nhiều đơn vị
                     </button>
                 </div>
-                <form x-show="!bulkMode" wire:submit.prevent="addDepartment" class="flex flex-col gap-5 p-5">
+                <form x-show="!bulkMode" x-on:submit.prevent="$wire.addDepartment(parentCode)" class="flex flex-col gap-5 p-5">
                     <label class="flex flex-col gap-2 text-sm font-medium text-slate-700">
                         <span>Tên đơn vị</span>
                         <input
@@ -299,15 +313,16 @@ new class extends Component {
                         <div class="flex items-center gap-2">
                             <select
                                 class="block min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20"
-                                wire:model.live="parent_code">
+                                x-model="parentCode"
+                                x-on:change="selectedDepartmentId = Number($event.target.selectedOptions[0]?.dataset.departmentId) || null">
                                 <option value="">Không có đơn vị cha</option>
                                 @foreach ($departments as $department)
-                                    <option value="{{ $department->code }}">
+                                    <option value="{{ $department->code }}" data-department-id="{{ $department->id }}">
                                         {{ $department->code }} - {{ $department->name }}
                                     </option>
                                 @endforeach
                             </select>
-                            <button type="button" wire:click="clearParentDepartment"
+                            <button type="button" x-on:click="selectedDepartmentId = null; parentCode = ''"
                                 class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-slate-300 bg-white font-semibold text-slate-500 transition hover:border-red-300 hover:bg-red-50 hover:text-red-600"
                                 aria-label="Xóa đơn vị cha" title="Xóa đơn vị cha">
                                 <span aria-hidden="true">&times;</span>
@@ -346,6 +361,32 @@ new class extends Component {
                         class="mt-1 inline-flex w-full items-center justify-center rounded-md bg-teal-700 px-4 py-2.5 font-semibold text-white transition hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-600 focus:ring-offset-2"
                         type="submit">Nhập danh sách</button>
                 </form>
+                <section class="border-t border-slate-200 px-5 py-4" aria-labelledby="department-creation-log-title">
+                    <div class="flex items-center justify-between gap-3">
+                        <div>
+                            <h3 id="department-creation-log-title" class="font-semibold text-slate-900">Nhật ký tạo đơn vị</h3>
+                            <p class="mt-1 text-sm text-slate-500">Các đơn vị vừa được tạo trong phiên này.</p>
+                        </div>
+                        <span class="rounded-full bg-slate-200 px-2 py-1 text-xs font-semibold text-slate-600">
+                            {{ count($creationLogs) }}
+                        </span>
+                    </div>
+                    @if ($creationLogs === [])
+                        <p class="mt-4 text-sm text-slate-500">Chưa có hoạt động.</p>
+                    @else
+                        <div class="mt-4 flex max-h-48 flex-col gap-2 overflow-y-auto">
+                            @foreach (array_reverse($creationLogs) as $log)
+                                <div class="flex items-start justify-between gap-3 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm">
+                                    <p class="min-w-0 text-slate-700">
+                                        Đã tạo <span class="font-semibold text-slate-900">{{ $log['name'] }}</span>
+                                        <span class="text-slate-500">({{ $log['code'] }})</span>
+                                    </p>
+                                    <time class="shrink-0 text-xs text-slate-400">{{ $log['created_at'] }}</time>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+                </section>
             </section>
             <section class="min-w-0 border-b border-slate-200 lg:border-b-0 lg:border-l">
                 <div class="border-b border-slate-200 px-5 py-4 flex flex-row justify-between items-center">

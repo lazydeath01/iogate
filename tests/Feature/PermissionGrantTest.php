@@ -7,6 +7,7 @@ use App\Models\Person;
 use App\Models\PersonType;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -39,16 +40,15 @@ class PermissionGrantTest extends TestCase
         $this->get('/permissions')->assertForbidden();
     }
 
-    public function test_system_user_can_search_targets_by_name_or_code(): void
+    public function test_system_user_loads_all_department_targets_on_mount(): void
     {
         $this->actingAs($this->createUser(true));
         Department::create(['name' => 'Phòng hành chính']);
         Department::create(['name' => 'Phòng kỹ thuật']);
 
         Livewire::test('permissions-content')
-            ->set('targetSearch', 'kỹ thuật')
             ->assertSee('Phòng kỹ thuật')
-            ->assertDontSee('Phòng hành chính');
+            ->assertSee('Phòng hành chính');
     }
 
     public function test_validation_failure_shows_blocking_error_dialog_until_dismissed(): void
@@ -145,6 +145,49 @@ class PermissionGrantTest extends TestCase
 
         $this->assertEquals($constraints, $personType->refresh()->permission);
         $this->assertEquals($constraints, $person->refresh()->permission);
+    }
+
+    public function test_all_permission_targets_reject_unsupported_permission_keys(): void
+    {
+        $department = Department::create(['name' => 'Phòng hành chính']);
+        $personType = PersonType::create(['name' => 'Nhân viên']);
+        $person = Person::create([
+            'code' => 'P001',
+            'full_name' => 'Nguyễn Văn A',
+            'phone' => '0123456789',
+            'person_type_id' => $personType->id,
+            'department_id' => $department->id,
+        ]);
+
+        foreach ([$department, $personType, $person] as $target) {
+            $target->permission = ['unsupported' => true];
+
+            $this->assertThrows(
+                fn () => $target->save(),
+                ValidationException::class,
+            );
+        }
+    }
+
+    public function test_permission_validation_rejects_invalid_ranges_weekdays_and_limits(): void
+    {
+        $invalidPermissions = [
+            ['allowed_date' => [['start' => '31/02/2026', 'end' => '01/03/2026']]],
+            ['allowed_time' => [['start' => '18:00', 'end' => '08:00']]],
+            ['allowed_weekdays' => [0, 8]],
+            ['allowed_weekdays' => ['1']],
+            ['max_entries' => 0],
+        ];
+
+        foreach ($invalidPermissions as $permission) {
+            $this->assertThrows(
+                fn () => Department::create([
+                    'name' => 'Phòng hành chính',
+                    'permission' => $permission,
+                ]),
+                ValidationException::class,
+            );
+        }
     }
 
     private function createUser(bool $isSystem): User
