@@ -402,7 +402,7 @@ new class extends Component {
                 @if ($departments->isEmpty())
                     <p class="px-5 py-8 text-center text-sm text-slate-500">Danh sách trống</p>
                 @endif
-                <div class="flex max-h-[calc(100vh-14rem)] min-h-0 flex-col gap-1 overflow-y-auto p-4"
+                <div class="flex max-h-[calc(100vh-14rem)] min-h-0 flex-col gap-1 overflow-auto p-4"
                     wire:key="department-list">
                     @foreach ($map[0] ?? [] as $departmentId)
                         @include('components.department-tree-node', [

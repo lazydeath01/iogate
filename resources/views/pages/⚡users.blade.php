@@ -9,8 +9,10 @@ new class extends Component
 };
 ?>
 
-<div class="flex flex-row items-start">
+<div class="flex flex-row items-start min-h-screen overflow-auto">
     {{-- sidebar --}}
     <livewire:sidebar />
-    <livewire:tabheading/>
+    <div class="flex flex-col w-full h-screen overflow-auto">
+        <livewire:users-content />
+    </div>
 </div>

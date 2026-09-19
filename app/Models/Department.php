@@ -5,12 +5,24 @@ namespace App\Models;
 use App\Models\Concerns\ValidatesPermission;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Validation\ValidationException;
 
 #[Fillable(['name', 'description', 'parent_id', 'sort_order', 'is_active', 'permission'])]
 class Department extends Model
 {
     use ValidatesPermission;
+
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'parent_id');
+    }
+
+    public function children(): HasMany
+    {
+        return $this->hasMany(self::class, 'parent_id');
+    }
 
     protected function casts(): array
     {
