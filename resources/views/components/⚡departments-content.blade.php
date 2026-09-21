@@ -1,11 +1,15 @@
 <?php
 
 use Livewire\Component;
+use Livewire\WithFileUploads;
 use App\Models\Department;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 new class extends Component {
+    use WithFileUploads;
+
     public $name = '';
     public $parent_code = '';
     public $is_active = true;
@@ -15,7 +19,7 @@ new class extends Component {
     public $selectedDepartmentId = null;
     public $editingDepartmentId = null;
     public $editingDepartmentName = '';
-    public $bulkDepartments = '';
+    public $departmentSpreadsheet;
     public $bulkImportErrors = [];
     public $bulkImportSuccess = '';
     public array $creationLogs = [];
@@ -67,60 +71,8 @@ new class extends Component {
         $this->reset(['name', 'is_active']);
     }
 
-    public function importDepartments(): void
+    private function createDepartmentsFromRows(array $rows): void
     {
-        $this->bulkImportErrors = [];
-        $this->bulkImportSuccess = '';
-
-        $rows = [];
-        $lines = preg_split('/\r\n|\r|\n/', trim($this->bulkDepartments));
-
-        foreach ($lines ?: [] as $lineNumber => $line) {
-            if (trim($line) === '') {
-                continue;
-            }
-
-            $columns = str_getcsv($line);
-            $name = trim($columns[0] ?? '');
-            $parentCode = trim($columns[1] ?? '');
-            $currentLine = $lineNumber + 1;
-
-            if (count($columns) > 2) {
-                $this->bulkImportErrors[] = "Dòng {$currentLine}: chỉ nhập tên đơn vị và mã đơn vị cha.";
-                continue;
-            }
-
-            if ($name === '') {
-                $this->bulkImportErrors[] = "Dòng {$currentLine}: tên đơn vị không được bỏ trống.";
-                continue;
-            }
-
-            if (mb_strlen($name) > 150) {
-                $this->bulkImportErrors[] = "Dòng {$currentLine}: tên đơn vị không được vượt quá 150 ký tự.";
-                continue;
-            }
-
-            if (mb_strlen($parentCode) > 50) {
-                $this->bulkImportErrors[] = "Dòng {$currentLine}: mã đơn vị cha không được vượt quá 50 ký tự.";
-                continue;
-            }
-
-            $rows[] = [
-                'line' => $currentLine,
-                'name' => $name,
-                'parent_code' => $parentCode,
-            ];
-        }
-
-        if ($this->bulkImportErrors !== []) {
-            return;
-        }
-
-        if ($rows === []) {
-            $this->bulkImportErrors[] = 'Hãy nhập ít nhất một đơn vị.';
-            return;
-        }
-
         try {
             $createdCount = 0;
             $createdDepartments = [];
@@ -136,13 +88,13 @@ new class extends Component {
 
                         if ($parentId === null) {
                             throw ValidationException::withMessages([
-                                'bulkDepartments' => "Dòng {$row['line']}: mã đơn vị cha không tồn tại hoặc chưa được nhập ở dòng trước.",
+                                'departmentSpreadsheet' => "Dòng {$row['line']}: mã đơn vị cha không tồn tại hoặc chưa được nhập ở dòng trước.",
                             ]);
                         }
 
                         if (mb_strlen($row['parent_code']) + 4 > 50) {
                             throw ValidationException::withMessages([
-                                'bulkDepartments' => "Dòng {$row['line']}: không thể tạo thêm đơn vị con vì mã đơn vị tự động sẽ vượt quá 50 ký tự.",
+                                'departmentSpreadsheet' => "Dòng {$row['line']}: không thể tạo thêm đơn vị con vì mã đơn vị tự động sẽ vượt quá 50 ký tự.",
                             ]);
                         }
                     }
@@ -163,11 +115,223 @@ new class extends Component {
             foreach ($createdDepartments as $department) {
                 $this->recordDepartmentCreation($department);
             }
-            $this->bulkDepartments = '';
             $this->bulkImportSuccess = "Đã thêm {$createdCount} đơn vị.";
         } catch (ValidationException $exception) {
-            $this->bulkImportErrors = $exception->errors()['bulkDepartments'] ?? ['Không thể nhập danh sách đơn vị.'];
+            $this->bulkImportErrors = collect($exception->errors())->flatten()->values()->all();
         }
+    }
+
+    public function importDepartmentSpreadsheet(): void
+    {
+        $this->bulkImportErrors = [];
+        $this->bulkImportSuccess = '';
+
+        $this->validate([
+            'departmentSpreadsheet' => ['required', 'file', 'mimes:xlsx', 'extensions:xlsx', 'max:5120'],
+        ]);
+
+        try {
+            $rows = $this->readSpreadsheetRows($this->departmentSpreadsheet->getRealPath());
+
+            if (count($rows) < 2) {
+                throw new \RuntimeException('Tệp Excel cần có hàng tiêu đề và ít nhất một đơn vị.');
+            }
+
+            $headers = array_map(fn ($header) => mb_strtolower(trim($header)), $rows[0]);
+
+            if (array_diff(['tên đơn vị', 'mã đơn vị cha'], $headers) !== []) {
+                throw new \RuntimeException('Hàng tiêu đề phải có: Tên đơn vị, Mã đơn vị cha.');
+            }
+
+            $headerIndexes = array_flip($headers);
+            $departmentRows = [];
+
+            foreach (array_slice($rows, 1) as $index => $row) {
+                $name = trim($row[$headerIndexes['tên đơn vị']] ?? '');
+                $parentCode = trim($row[$headerIndexes['mã đơn vị cha']] ?? '');
+                $parentCode = str_contains($parentCode, ' - ')
+                    ? explode(' - ', $parentCode, 2)[0]
+                    : $parentCode;
+
+                if ($name === '' && $parentCode === '') {
+                    continue;
+                }
+
+                $departmentRows[] = [
+                    'line' => $index + 2,
+                    'name' => $name,
+                    'parent_code' => $parentCode,
+                ];
+            }
+
+            if ($departmentRows === []) {
+                throw new \RuntimeException('Tệp Excel cần có ít nhất một đơn vị.');
+            }
+
+            foreach ($departmentRows as $departmentRow) {
+                if ($departmentRow['name'] === '') {
+                    $this->bulkImportErrors[] = "Dòng {$departmentRow['line']}: tên đơn vị không được bỏ trống.";
+                } elseif (mb_strlen($departmentRow['name']) > 150) {
+                    $this->bulkImportErrors[] = "Dòng {$departmentRow['line']}: tên đơn vị không được vượt quá 150 ký tự.";
+                }
+
+                if (mb_strlen($departmentRow['parent_code']) > 50) {
+                    $this->bulkImportErrors[] = "Dòng {$departmentRow['line']}: mã đơn vị cha không được vượt quá 50 ký tự.";
+                }
+            }
+
+            if ($this->bulkImportErrors !== []) {
+                return;
+            }
+
+            $this->createDepartmentsFromRows($departmentRows);
+            $this->reset('departmentSpreadsheet');
+        } catch (ValidationException $exception) {
+            $this->bulkImportErrors = collect($exception->errors())->flatten()->values()->all();
+        } catch (\RuntimeException $exception) {
+            $this->bulkImportErrors = [$exception->getMessage()];
+        }
+    }
+
+    public function downloadTemplate(): BinaryFileResponse
+    {
+        $departments = $this->departments
+            ->map(fn (Department $department) => $department->code.' - '.$department->name)
+            ->values();
+        $templatePath = tempnam(sys_get_temp_dir(), 'department-template-');
+
+        if ($templatePath === false) {
+            throw new \RuntimeException('Không thể tạo tệp mẫu Excel.');
+        }
+
+        $zip = new \ZipArchive;
+
+        if ($zip->open($templatePath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+            @unlink($templatePath);
+            throw new \RuntimeException('Không thể tạo tệp mẫu Excel.');
+        }
+
+        $lastDepartmentRow = max(2, $departments->count() + 1);
+        $departmentRows = '';
+
+        foreach ($departments as $index => $code) {
+            $rowNumber = $index + 2;
+            $departmentRows .= '<row r="'.$rowNumber.'">'.$this->excelCell('A'.$rowNumber, $code).'</row>';
+        }
+
+        $departmentExample = $departments->first() ?? '';
+        $departmentsSheet = '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row r="1">'.$this->excelCell('A1', 'Mã đơn vị - Tên đơn vị').'</row>'.$departmentRows.'</sheetData></worksheet>';
+        $mainSheet = '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols><col min="1" max="1" width="42" customWidth="1"/><col min="2" max="2" width="57" customWidth="1"/></cols><sheetData>'
+            .'<row r="1">'.$this->excelCell('A1', 'Tên đơn vị').$this->excelCell('B1', 'Mã đơn vị cha').'</row>'
+            .'<row r="2">'.$this->excelCell('A2', 'Phòng Tài chính').$this->excelCell('B2', $departmentExample).'</row>'
+            .'</sheetData><dataValidations count="1"><dataValidation type="list" allowBlank="1" showErrorMessage="1" sqref="B2:B1000"><formula1>&apos;CodeList&apos;!$A$2:$A$'.$lastDepartmentRow.'</formula1></dataValidation></dataValidations></worksheet>';
+
+        $zip->addFromString('[Content_Types].xml', '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>');
+        $zip->addFromString('_rels/.rels', '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>');
+        $zip->addFromString('xl/workbook.xml', '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Departments" sheetId="1" r:id="rId1"/><sheet name="CodeList" sheetId="2" state="hidden" r:id="rId2"/></sheets></workbook>');
+        $zip->addFromString('xl/_rels/workbook.xml.rels', '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/></Relationships>');
+        $zip->addFromString('xl/worksheets/sheet1.xml', $mainSheet);
+        $zip->addFromString('xl/worksheets/sheet2.xml', $departmentsSheet);
+        $zip->close();
+
+        return response()->download($templatePath, 'departments-import-template.xlsx', [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ])->deleteFileAfterSend(true);
+    }
+
+    private function excelCell(string $coordinate, string $value): string
+    {
+        $escapedValue = htmlspecialchars($value, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+
+        return '<c r="'.$coordinate.'" t="inlineStr"><is><t>'.$escapedValue.'</t></is></c>';
+    }
+
+    /** @return array<int, array<int, string>> */
+    private function readSpreadsheetRows(string $path): array
+    {
+        $zip = new \ZipArchive;
+
+        if ($zip->open($path) !== true) {
+            throw new \RuntimeException('Không thể mở tệp Excel.');
+        }
+
+        try {
+            $worksheetXml = $zip->getFromName('xl/worksheets/sheet1.xml');
+
+            if ($worksheetXml === false) {
+                throw new \RuntimeException('Tệp Excel không có trang tính đầu tiên.');
+            }
+
+            $sharedStrings = $this->sharedStrings($zip->getFromName('xl/sharedStrings.xml'));
+            $worksheet = simplexml_load_string($worksheetXml, \SimpleXMLElement::class, LIBXML_NONET);
+
+            if ($worksheet === false) {
+                throw new \RuntimeException('Không thể đọc nội dung tệp Excel.');
+            }
+
+            $rows = [];
+
+            foreach ($worksheet->xpath('//*[local-name()="row"]') ?: [] as $row) {
+                $values = [];
+
+                foreach ($row->xpath('./*[local-name()="c"]') ?: [] as $cell) {
+                    $columnIndex = $this->spreadsheetColumnIndex((string) $cell['r']);
+                    $type = (string) $cell['t'];
+                    $valueNode = $cell->xpath('./*[local-name()="v"]')[0] ?? null;
+                    $value = $valueNode === null ? '' : (string) $valueNode;
+
+                    if ($type === 's') {
+                        $value = $sharedStrings[(int) $value] ?? '';
+                    }
+
+                    if ($type === 'inlineStr') {
+                        $value = implode('', array_map('strval', $cell->xpath('.//*[local-name()="t"]') ?: []));
+                    }
+
+                    $values[$columnIndex] = trim($value);
+                }
+
+                if ($values !== []) {
+                    ksort($values);
+                    $rows[] = $values;
+                }
+            }
+
+            return $rows;
+        } finally {
+            $zip->close();
+        }
+    }
+
+    /** @return array<int, string> */
+    private function sharedStrings(string|false $xml): array
+    {
+        if ($xml === false) {
+            return [];
+        }
+
+        $sharedStrings = simplexml_load_string($xml, \SimpleXMLElement::class, LIBXML_NONET);
+
+        if ($sharedStrings === false) {
+            return [];
+        }
+
+        return array_map(
+            fn ($string) => implode('', array_map('strval', $string->xpath('.//*[local-name()="t"]') ?: [])),
+            $sharedStrings->xpath('//*[local-name()="si"]') ?: [],
+        );
+    }
+
+    private function spreadsheetColumnIndex(string $reference): int
+    {
+        preg_match('/^[A-Z]+/', $reference, $matches);
+        $index = 0;
+
+        foreach (str_split($matches[0] ?? '') as $character) {
+            $index = ($index * 26) + ord($character) - 64;
+        }
+
+        return max(0, $index - 1);
     }
 
     private function recordDepartmentCreation(Department $department): void
@@ -254,6 +418,49 @@ new class extends Component {
 <div class="h-full bg-slate-100 p-4 sm:p-6" x-data="{
     selectedDepartmentId: @js($selectedDepartmentId),
     parentCode: @js($parent_code),
+    searchInput: '',
+    searchTerm: '',
+    rootElement: null,
+    init() {
+        this.rootElement = this.$el;
+    },
+    normalizeVietnamese(value) {
+        const replacements = {
+            'á': 'a', 'à': 'a', 'ả': 'a', 'ã': 'a', 'ạ': 'a', 'â': 'a', 'ấ': 'a', 'ầ': 'a', 'ẩ': 'a', 'ẫ': 'a', 'ậ': 'a', 'ă': 'a', 'ắ': 'a', 'ằ': 'a', 'ẳ': 'a', 'ẵ': 'a', 'ặ': 'a',
+            'é': 'e', 'è': 'e', 'ẻ': 'e', 'ẽ': 'e', 'ẹ': 'e', 'ê': 'e', 'ế': 'e', 'ề': 'e', 'ể': 'e', 'ễ': 'e', 'ệ': 'e',
+            'í': 'i', 'ì': 'i', 'ỉ': 'i', 'ĩ': 'i', 'ị': 'i',
+            'ó': 'o', 'ò': 'o', 'ỏ': 'o', 'õ': 'o', 'ọ': 'o', 'ô': 'o', 'ố': 'o', 'ồ': 'o', 'ổ': 'o', 'ỗ': 'o', 'ộ': 'o', 'ơ': 'o', 'ớ': 'o', 'ờ': 'o', 'ở': 'o', 'ỡ': 'o', 'ợ': 'o',
+            'ú': 'u', 'ù': 'u', 'ủ': 'u', 'ũ': 'u', 'ụ': 'u', 'ư': 'u', 'ứ': 'u', 'ừ': 'u', 'ử': 'u', 'ữ': 'u', 'ự': 'u',
+            'ý': 'y', 'ỳ': 'y', 'ỷ': 'y', 'ỹ': 'y', 'ỵ': 'y',
+            'đ': 'd'
+        };
+
+        return value.toLowerCase().replace(/[áàảãạâấầẩẫậăắằẳẵặéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵđ]/g, (character) => replacements[character] || character);
+    },
+    searchDepartment(term) {
+        this.searchInput = term;
+        this.searchTerm = this.normalizeVietnamese(term);
+        this.refreshSearchVisibility();
+        window.dispatchEvent(new CustomEvent('department-search', { detail: this.searchTerm }));
+    },
+    refreshSearchVisibility() {
+        const term = this.searchTerm.trim().toLowerCase();
+
+        if (!term) {
+            this.rootElement.querySelectorAll('[data-department-node]').forEach((node) => {
+                node.dataset.searchVisible = 'true';
+                node.style.display = '';
+            });
+
+            return;
+        }
+
+        this.rootElement.querySelectorAll('[data-department-node]').forEach((node) => {
+            const isVisible = this.normalizeVietnamese(node.dataset.searchText).includes(term);
+            node.dataset.searchVisible = isVisible ? 'true' : 'false';
+            node.style.display = isVisible ? '' : 'none';
+        });
+    },
     selectParent(departmentId, departmentCode) {
         if (departmentId === this.selectedDepartmentId) {
             this.selectedDepartmentId = null;
@@ -336,17 +543,29 @@ new class extends Component {
                         class="mt-1 inline-flex w-full items-center justify-center rounded-md bg-teal-700 px-4 py-2.5 font-semibold text-white transition hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-600 focus:ring-offset-2"
                         type="submit">Thêm đơn vị</button>
                 </form>
-                <form x-show="bulkMode" wire:submit.prevent="importDepartments" class="flex flex-col gap-4 p-5">
-                    <label class="flex flex-col gap-2 text-sm font-medium text-slate-700">
-                        <span>Danh sách đơn vị</span>
-                        <textarea wire:model="bulkDepartments" rows="9"
-                            class="rounded-md border border-slate-300 bg-white px-3 py-2 font-mono text-sm text-slate-900 outline-none transition focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20"
-                            placeholder="Tên đơn vị, mã đơn vị cha&#10;Phòng Tài chính,&#10;Tổ Kế toán,001"></textarea>
-                    </label>
-                    <p class="text-xs leading-5 text-slate-500">
-                        Mỗi dòng một đơn vị theo định dạng <strong>tên đơn vị, mã đơn vị cha</strong>. Để trống mã cha
-                        nếu là đơn vị cấp cao nhất. Đơn vị cha phải nằm ở dòng trước.
-                    </p>
+                <div x-show="bulkMode" class="flex flex-col gap-4 p-5">
+                    <div class="flex flex-col gap-3 p-4">
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <h3 class="text-sm font-semibold text-slate-900">Nhập từ Excel</h3>
+                                <p class="mt-1 text-xs text-slate-600">Dùng mẫu Excel để chọn mã đơn vị cha từ danh sách có sẵn.</p>
+                            </div>
+                            <button type="button" wire:click="downloadTemplate"
+                                class="inline-flex items-center justify-center rounded-md border border-teal-700 bg-white px-3 py-2 text-sm font-semibold text-teal-700 transition hover:bg-teal-100">
+                                Tải mẫu Excel
+                            </button>
+                        </div>
+                        <input type="file" wire:model="departmentSpreadsheet" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                            class="block w-full rounded-md border px-3 py-2 text-sm text-slate-700 file:mr-3 file:rounded-md file:border file:border-slate-400 file:px-3 file:py-1.5 file:font-semibold
+                                {{ $errors->has('departmentSpreadsheet') ? 'border-red-600 bg-red-50 file:bg-red-100 file:text-red-800' : ($departmentSpreadsheet ? 'border-green-600 bg-green-50 file:bg-green-100 file:text-green-800' : 'border-black bg-white file:bg-slate-100 file:text-slate-800') }}">
+                        @error('departmentSpreadsheet')
+                            <span class="text-sm font-normal text-red-600">{{ $message }}</span>
+                        @enderror
+                        <button type="button" wire:click="importDepartmentSpreadsheet"
+                            class="inline-flex w-full items-center justify-center rounded-md bg-teal-700 px-4 py-2.5 font-semibold text-white transition hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-600 focus:ring-offset-2">
+                            Nhập tệp Excel
+                        </button>
+                    </div>
                     @if ($bulkImportErrors !== [])
                         <div class="flex flex-col gap-1 text-sm text-red-600">
                             @foreach ($bulkImportErrors as $error)
@@ -357,10 +576,7 @@ new class extends Component {
                     @if ($bulkImportSuccess !== '')
                         <p class="text-sm text-teal-700">{{ $bulkImportSuccess }}</p>
                     @endif
-                    <button
-                        class="mt-1 inline-flex w-full items-center justify-center rounded-md bg-teal-700 px-4 py-2.5 font-semibold text-white transition hover:bg-teal-800 focus:outline-none focus:ring-2 focus:ring-teal-600 focus:ring-offset-2"
-                        type="submit">Nhập danh sách</button>
-                </form>
+                </div>
                 <section class="border-t border-slate-200 px-5 py-4" aria-labelledby="department-creation-log-title">
                     <div class="flex items-center justify-between gap-3">
                         <div>
@@ -374,14 +590,14 @@ new class extends Component {
                     @if ($creationLogs === [])
                         <p class="mt-4 text-sm text-slate-500">Chưa có hoạt động.</p>
                     @else
-                        <div class="mt-4 flex max-h-48 flex-col gap-2 overflow-y-auto">
+                        <div class="mt-4 flex max-h-48 flex-col overflow-y-auto">
                             @foreach (array_reverse($creationLogs) as $log)
-                                <div class="flex items-start justify-between gap-3 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm">
-                                    <p class="min-w-0 text-slate-700">
-                                        Đã tạo <span class="font-semibold text-slate-900">{{ $log['name'] }}</span>
-                                        <span class="text-slate-500">({{ $log['code'] }})</span>
+                                <div class="flex items-center gap-2 border-b border-slate-200 px-1 py-2 text-sm {{ $loop->first ? 'bg-teal-50 font-semibold text-teal-700' : 'text-slate-700' }}">
+                                    <p class="min-w-0 truncate">
+                                        Đã tạo <span class="font-semibold {{ $loop->first ? 'text-teal-900' : 'text-slate-900' }}">{{ $log['name'] }}</span>
+                                        <span class="{{ $loop->first ? 'text-teal-600' : 'text-slate-500' }}">({{ $log['code'] }})</span>
                                     </p>
-                                    <time class="shrink-0 text-xs text-slate-400">{{ $log['created_at'] }}</time>
+                                    <time class="ml-auto shrink-0 text-xs text-slate-400">{{ $log['created_at'] }}</time>
                                 </div>
                             @endforeach
                         </div>
@@ -397,6 +613,16 @@ new class extends Component {
                     <div
                         class="hidden rounded-md border border-slate-200 bg-white px-2 py-2 text-right shadow-sm sm:block">
                         <p class=" font-bold text-slate-900">{{ $departments->count() }} <span class="text-xs font-medium text-slate-500">đơn vị</span></p>
+                    </div>
+                </div>
+                <div class="border-b border-slate-200 px-5 py-3">
+                    <label class="sr-only" for="department-search">Tìm kiếm đơn vị</label>
+                    <div class="flex items-center gap-2">
+                        <input id="department-search" type="search" x-model="searchInput"
+                            x-on:input="searchDepartment($event.target.value)"
+                            x-on:keydown.escape="searchDepartment('')"
+                            placeholder="Tìm theo mã hoặc tên đơn vị"
+                            class="min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20">
                     </div>
                 </div>
                 @if ($departments->isEmpty())
