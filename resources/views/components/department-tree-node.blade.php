@@ -1,22 +1,9 @@
 @php
     $department = $departmentsById[$departmentId];
     $children = $map[$departmentId] ?? [];
-    $buildSearchText = function (int $id) use (&$buildSearchText, $departmentsById, $map): string {
-        $item = $departmentsById[$id];
-        $text = $item->code.' '.$item->name;
-
-        foreach ($map[$id] ?? [] as $childId) {
-            $text .= ' '.$buildSearchText($childId);
-        }
-
-        return $text;
-    };
-    $searchText = $buildSearchText($departmentId);
 @endphp
 
 <div x-data="{
-    searchText: @js($searchText),
-    searchTerm: '',
     open: true,
     menuOpen: false,
     confirmOpen: false,
@@ -33,8 +20,8 @@
         this.menuTop = opensDown ? rect.bottom + gap : rect.top - menuHeight - gap;
         this.menuLeft = Math.max(8, rect.right - menuWidth);
         this.menuOpen = !this.menuOpen;
-    }" x-on:department-search.window="searchTerm = $event.detail" data-department-node
-    data-search-text="{{ $searchText }}" data-search-visible="true" wire:key="department-{{ $department->id }}">
+    }
+}" wire:key="department-{{ $department->id }}">
     @if ($editingDepartmentId === $department->id)
         <div class="fixed inset-0 z-40 bg-slate-950/60" aria-hidden="true"></div>
     @endif
@@ -140,7 +127,7 @@
     </div>
 
     @if (count($children) > 0)
-        <div x-show="open || searchTerm">
+        <div x-show="open">
             @foreach ($children as $childId)
                 @include('components.department-tree-node', [
                     'departmentId' => $childId,

@@ -418,49 +418,6 @@ new class extends Component {
 <div class="h-full bg-slate-100 p-4 sm:p-6" x-data="{
     selectedDepartmentId: @js($selectedDepartmentId),
     parentCode: @js($parent_code),
-    searchInput: '',
-    searchTerm: '',
-    rootElement: null,
-    init() {
-        this.rootElement = this.$el;
-    },
-    normalizeVietnamese(value) {
-        const replacements = {
-            'á': 'a', 'à': 'a', 'ả': 'a', 'ã': 'a', 'ạ': 'a', 'â': 'a', 'ấ': 'a', 'ầ': 'a', 'ẩ': 'a', 'ẫ': 'a', 'ậ': 'a', 'ă': 'a', 'ắ': 'a', 'ằ': 'a', 'ẳ': 'a', 'ẵ': 'a', 'ặ': 'a',
-            'é': 'e', 'è': 'e', 'ẻ': 'e', 'ẽ': 'e', 'ẹ': 'e', 'ê': 'e', 'ế': 'e', 'ề': 'e', 'ể': 'e', 'ễ': 'e', 'ệ': 'e',
-            'í': 'i', 'ì': 'i', 'ỉ': 'i', 'ĩ': 'i', 'ị': 'i',
-            'ó': 'o', 'ò': 'o', 'ỏ': 'o', 'õ': 'o', 'ọ': 'o', 'ô': 'o', 'ố': 'o', 'ồ': 'o', 'ổ': 'o', 'ỗ': 'o', 'ộ': 'o', 'ơ': 'o', 'ớ': 'o', 'ờ': 'o', 'ở': 'o', 'ỡ': 'o', 'ợ': 'o',
-            'ú': 'u', 'ù': 'u', 'ủ': 'u', 'ũ': 'u', 'ụ': 'u', 'ư': 'u', 'ứ': 'u', 'ừ': 'u', 'ử': 'u', 'ữ': 'u', 'ự': 'u',
-            'ý': 'y', 'ỳ': 'y', 'ỷ': 'y', 'ỹ': 'y', 'ỵ': 'y',
-            'đ': 'd'
-        };
-
-        return value.toLowerCase().replace(/[áàảãạâấầẩẫậăắằẳẵặéèẻẽẹêếềểễệíìỉĩịóòỏõọôốồổỗộơớờởỡợúùủũụưứừửữựýỳỷỹỵđ]/g, (character) => replacements[character] || character);
-    },
-    searchDepartment(term) {
-        this.searchInput = term;
-        this.searchTerm = this.normalizeVietnamese(term);
-        this.refreshSearchVisibility();
-        window.dispatchEvent(new CustomEvent('department-search', { detail: this.searchTerm }));
-    },
-    refreshSearchVisibility() {
-        const term = this.searchTerm.trim().toLowerCase();
-
-        if (!term) {
-            this.rootElement.querySelectorAll('[data-department-node]').forEach((node) => {
-                node.dataset.searchVisible = 'true';
-                node.style.display = '';
-            });
-
-            return;
-        }
-
-        this.rootElement.querySelectorAll('[data-department-node]').forEach((node) => {
-            const isVisible = this.normalizeVietnamese(node.dataset.searchText).includes(term);
-            node.dataset.searchVisible = isVisible ? 'true' : 'false';
-            node.style.display = isVisible ? '' : 'none';
-        });
-    },
     selectParent(departmentId, departmentCode) {
         if (departmentId === this.selectedDepartmentId) {
             this.selectedDepartmentId = null;
@@ -613,16 +570,6 @@ new class extends Component {
                     <div
                         class="hidden rounded-md border border-slate-200 bg-white px-2 py-2 text-right shadow-sm sm:block">
                         <p class=" font-bold text-slate-900">{{ $departments->count() }} <span class="text-xs font-medium text-slate-500">đơn vị</span></p>
-                    </div>
-                </div>
-                <div class="border-b border-slate-200 px-5 py-3">
-                    <label class="sr-only" for="department-search">Tìm kiếm đơn vị</label>
-                    <div class="flex items-center gap-2">
-                        <input id="department-search" type="search" x-model="searchInput"
-                            x-on:input="searchDepartment($event.target.value)"
-                            x-on:keydown.escape="searchDepartment('')"
-                            placeholder="Tìm theo mã hoặc tên đơn vị"
-                            class="min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20">
                     </div>
                 </div>
                 @if ($departments->isEmpty())
