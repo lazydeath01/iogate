@@ -37,17 +37,6 @@ class User extends Authenticatable
         });
     }
 
-    public function setPasswordAttribute(string $value): void
-    {
-        if (preg_match('/\s/', $value) === 1) {
-            throw ValidationException::withMessages([
-                'password' => 'Mật khẩu không được chứa khoảng trắng.',
-            ]);
-        }
-
-        $this->attributes['password'] = Hash::make($value);
-    }
-
     public function department(): BelongsTo
     {
         return $this->belongsTo(Department::class);
