@@ -646,7 +646,7 @@ new class extends Component {
 					</div>
 					<div class="flex flex-wrap gap-2">
 						<button type="button" x-on:click="dialog = 'create'" class="rounded-md bg-teal-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-teal-800">Tạo tài khoản</button>
-						<button type="button" x-on:click="dialog = 'bulk'" class="rounded-md border border-teal-700 px-4 py-2 text-sm font-semibold text-teal-700 transition hover:bg-teal-50">Tạo hàng loạt</button>
+						<button type="button" x-on:click="dialog = 'bulk'" class="rounded-md border border-teal-700 px-4 py-2 text-sm font-semibold text-teal-700 transition hover:bg-teal-50">Nhập từ file Excel</button>
 					</div>
 				</div>
 				<div class="overflow-x-auto">
@@ -673,7 +673,7 @@ new class extends Component {
 		</div>
 
 		<div x-cloak x-show="dialog !== null || $wire.editingUserId !== null" x-transition.opacity class="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/65 p-4" role="dialog" aria-modal="true">
-			<div x-ref="dialogPanel" x-on:keydown.tab="trapFocus($event)" class="max-h-[90vh] w-full max-w-lg overflow-y-auto border-2 border-slate-300 bg-white shadow-xl">
+			<div x-ref="dialogPanel" x-on:keydown.tab="trapFocus($event)" class="relative max-h-[90vh] w-full max-w-lg overflow-y-auto border-2 border-slate-300 bg-white shadow-xl">
 				<div class="flex items-start justify-between border-b-2 border-slate-200 bg-slate-50 px-5 py-4">
 					<div>
 						<h2 class="font-semibold text-slate-900" x-text="dialog === 'bulk' ? 'Tạo hàng loạt từ Excel' : (dialog === 'edit' || $wire.editingUserId !== null ? 'Chỉnh sửa tài khoản' : 'Tạo tài khoản')"></h2>
@@ -710,15 +710,39 @@ new class extends Component {
 				</form>
 
 				<form x-show="dialog === 'bulk'" wire:submit="importAccounts" class="flex flex-col gap-4 p-5">
-					<p class="text-sm leading-6 text-slate-600">Tệp .xlsx với các cột: Tên đăng nhập, Mật khẩu, Số điện thoại, Đơn vị. Cột Đơn vị chỉ nhận giá trị từ danh sách trong mẫu. Tài khoản nhập vào sẽ được kích hoạt mặc định.</p>
+					<p class="text-sm leading-6 text-slate-600">Tệp .xlsx với các cột: Tên đăng nhập, Mật khẩu, Số điện thoại, Đơn vị. Cột Đơn vị chỉ nhận giá trị từ danh sách trong mẫu.</p>
 					<button type="button" wire:click="downloadTemplate" class="w-fit rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:bg-teal-50 hover:text-teal-800">Tải mẫu Excel</button>
 					<input wire:model="accountSpreadsheet" type="file" accept=".xlsx" class="block w-full rounded-md border border-dashed border-slate-400 bg-slate-50 px-3 py-3 text-sm text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-teal-700 file:px-3 file:py-2 file:font-semibold file:text-white hover:border-teal-500 focus:border-teal-600 focus:outline-none focus:ring-0">
 					@error('accountSpreadsheet') <span class="text-xs text-red-600">{{ $message }}</span> @enderror
-					@if ($bulkImportErrors !== [])
-						<div class="flex flex-col gap-1 text-xs text-red-600">@foreach ($bulkImportErrors as $error)<span>{{ $error }}</span>@endforeach</div>
-					@endif
 					<button type="submit" class="rounded-md bg-teal-700 px-4 py-2.5 font-semibold text-white hover:bg-teal-800" wire:loading.attr="disabled">Nhập tài khoản</button>
 				</form>
+
+				<div x-show="dialog === 'bulk' && $wire.bulkImportSuccess !== ''" x-cloak class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-teal-50 p-6 text-center">
+					<span class="flex h-14 w-14 items-center justify-center rounded-full bg-teal-100">
+						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-8 w-8 text-teal-700"><path d="M20 6 9 17l-5-5"/></svg>
+					</span>
+					<h3 class="text-lg font-semibold text-teal-900">Nhập tài khoản thành công</h3>
+					<p class="text-sm text-teal-800">{{ $bulkImportSuccess }}</p>
+					<button type="button" wire:click="$set('bulkImportSuccess', '')" class="mt-2 rounded-md bg-teal-700 px-6 py-2.5 font-semibold text-white hover:bg-teal-800">OK</button>
+				</div>
+
+				<div x-show="dialog === 'bulk' && $wire.bulkImportErrors.length > 0" x-cloak class="absolute inset-0 z-10 flex flex-col gap-3 bg-red-50 p-6">
+					<div class="flex flex-col items-center gap-3 text-center">
+						<span class="flex h-14 w-14 items-center justify-center rounded-full bg-red-100">
+							<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-8 w-8 text-red-700"><path d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/></svg>
+						</span>
+						<h3 class="text-lg font-semibold text-red-900">Nhập tài khoản thất bại</h3>
+						<p class="text-sm text-red-800">{{ count($bulkImportErrors) }} lỗi được tìm thấy trong tệp Excel.</p>
+					</div>
+					<div class="flex-1 overflow-y-auto rounded-md border border-red-200 bg-white p-3">
+						<ul class="flex flex-col gap-1 text-left text-xs text-red-700">
+							@foreach ($bulkImportErrors as $error)
+								<li wire:key="bulk-import-error-{{ $loop->index }}">{{ $error }}</li>
+							@endforeach
+						</ul>
+					</div>
+					<button type="button" wire:click="$set('bulkImportErrors', [])" class="mx-auto rounded-md bg-red-700 px-6 py-2.5 font-semibold text-white hover:bg-red-800">OK</button>
+				</div>
 
 				<div x-show="dialog === 'edit' || $wire.editingUserId !== null" class="grid gap-6 p-5 lg:grid-cols-2">
 					<form wire:submit="updateUser" class="flex flex-col gap-4">
