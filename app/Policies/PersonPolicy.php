@@ -16,7 +16,7 @@ class PersonPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->is_system;
+        return $user->is_active;
     }
 
     /**
