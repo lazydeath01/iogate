@@ -29,7 +29,6 @@ new class extends Component {
         </div>
 
         <nav class="flex-1 py-6" aria-label="Main navigation">
-            {{-- <p class="px-3 pb-3 text-[11px] font-bold tracking-[0.18em] text-slate-500">ĐIỀU HƯỚNG</p> --}}
             <div class="flex flex-col gap-1">
                 @foreach (config('tablist') as $tab)
                     @php($isActive = request()->routeIs($tab['route']))
@@ -47,9 +46,6 @@ new class extends Component {
 
         <div class="border-t border-white/10 p-4">
             <div class="mb-3 flex items-center gap-3 rounded-lg bg-white/5 px-3 py-3">
-                {{-- <div class="flex size-9 items-center justify-center rounded-full bg-slate-700 text-sm font-bold text-cyan-300">
-                    {{ strtoupper(substr(Auth::user()->username, 0, 1)) }}
-                </div> --}}
                 <div class="min-w-0">
                     <p class="truncate text-sm font-semibold text-white">{{ Auth::user()->username }}</p>
                     <p class="text-xs text-slate-500">Đang hoạt động</p>

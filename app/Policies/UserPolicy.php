@@ -4,9 +4,12 @@ namespace App\Policies;
 
 use App\Models\Department;
 use App\Models\User;
+use App\Policies\Concerns\ManagesDepartmentHierarchy;
 
 class UserPolicy
 {
+    use ManagesDepartmentHierarchy;
+
     public function viewAny(User $user): bool
     {
         return $user->is_active;
@@ -65,31 +68,6 @@ class UserPolicy
         }
 
         return in_array($managedUser->department_id, $this->managedDepartmentIds($user->department_id), true);
-    }
-
-    /**
-     * @return array<int>
-     */
-    private function managedDepartmentIds(int $departmentId): array
-    {
-        $childrenByParent = Department::query()
-            ->get(['id', 'parent_id'])
-            ->groupBy('parent_id')
-            ->map(fn ($children) => $children->pluck('id')->all())
-            ->all();
-        $managedDepartmentIds = [$departmentId];
-        $pendingDepartmentIds = [$departmentId];
-
-        while ($pendingDepartmentIds !== []) {
-            $currentDepartmentId = array_pop($pendingDepartmentIds);
-
-            foreach ($childrenByParent[$currentDepartmentId] ?? [] as $childDepartmentId) {
-                $managedDepartmentIds[] = $childDepartmentId;
-                $pendingDepartmentIds[] = $childDepartmentId;
-            }
-        }
-
-        return $managedDepartmentIds;
     }
 
     public function forceDelete(User $user, User $model): bool

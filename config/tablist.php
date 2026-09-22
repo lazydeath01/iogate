@@ -28,11 +28,16 @@ return [
     ],
     [
         'id' => 6,
+        'name' => 'Cá nhân',
+        'route' => 'persons',
+    ],
+    [
+        'id' => 7,
         'name' => 'Phương tiện',
         'route' => 'vehicles',
     ],
     [
-        'id' => 7,
+        'id' => 8,
         'name' => 'Cổng',
         'route' => 'gates',
     ],
