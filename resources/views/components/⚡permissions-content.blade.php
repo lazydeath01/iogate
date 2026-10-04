@@ -129,7 +129,7 @@ new class extends Component {
             ->get(['id', 'name', 'permission']);
         $this->persons = Person::query()
             ->orderBy('full_name')
-            ->get(['id', 'code', 'full_name', 'permission']);
+            ->get(['id', 'full_name', 'permission']);
     }
 
     public function hasErrorHighlight(string $area): bool

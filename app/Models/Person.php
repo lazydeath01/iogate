@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['code', 'full_name', 'identity_number', 'phone', 'person_type_id', 'department_id', 'is_active', 'note', 'special_permission', 'permission'])]
+#[Fillable(['full_name', 'identity_number', 'phone', 'person_type_id', 'department_id', 'is_active', 'note', 'special_permission', 'permission'])]
 class Person extends Model
 {
     use ValidatesPermission;
